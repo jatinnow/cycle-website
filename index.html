@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CycleShare Club – IISER Pune</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ═══════════════════════════════════════════════
+       RESET & TOKENS
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:       #0f0f0a;
+      --cream:     #f4efe4;
+      --sage:      #4caf7d;
+      --rust:      #c94a2b;
+      --dim:       rgba(244, 239, 228, 0.68);
+      --white:     #ffffff;
+
+      --f-display: 'Bebas Neue', sans-serif;
+      --f-serif:   'DM Serif Display', serif;
+      --f-body:    'DM Sans', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--ink);
+      color: var(--cream);
+      font-family: var(--f-body);
+      overflow-x: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════
+       LOADER
+    ═══════════════════════════════════════════════ */
+    #loader {
+      position: fixed; inset: 0;
+      background: var(--ink);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.6rem;
+      z-index: 9999;
+      transition: opacity .65s ease, visibility .65s ease;
+    }
+    #loader.out { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    .ld-logo {
+      font-family: var(--f-display);
+      font-size: clamp(2.8rem, 8vw, 6rem);
+      letter-spacing: .06em;
+      color: var(--cream);
+    }
+    .ld-logo span { color: var(--sage); }
+
+    .ld-track {
+      width: min(300px, 68vw);
+      height: 2px;
+      background: rgba(244,239,228,.12);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .ld-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--sage);
+      border-radius: 99px;
+      box-shadow: 0 0 10px var(--sage);
+      transition: width .08s linear;
+    }
+    .ld-pct {
+      font-size: .75rem;
+      letter-spacing: .14em;
+      color: var(--dim);
+    }
+
+    /* ═══════════════════════════════════════════════
+       FIXED PROGRESS LINE
+    ═══════════════════════════════════════════════ */
+    #progress-line {
+      position: fixed; top: 0; left: 0;
+      height: 2px; width: 0%;
+      background: var(--sage);
+      box-shadow: 0 0 8px var(--sage);
+      z-index: 8000;
+      pointer-events: none;
+      transition: width .04s linear;
+    }
+
+    /* ═══════════════════════════════════════════════
+       NAVBAR
+    ═══════════════════════════════════════════════ */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 1.2rem 5vw;
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 500;
+    }
+    nav::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(to bottom, rgba(15,15,10,.75) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    .nav-brand {
+      font-family: var(--f-display);
+      font-size: 1.55rem;
+      letter-spacing: .09em;
+      color: var(--cream);
+      text-decoration: none;
+      position: relative;
+    }
+    .nav-brand span { color: var(--sage); }
+    .nav-sub {
+      font-size: .68rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--dim);
+      position: relative;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: color .2s ease, border-color .2s ease;
+    }
+    .nav-sub:hover {
+      color: var(--cream);
+      border-bottom-color: var(--sage);
+    }
+
+    /* ═══════════════════════════════════════════════
+       ──────────────────────────────────────────────
+       SCROLL STAGE
+       This is the ONLY scroll driver. Everything
+       sticky lives inside it.
+       ──────────────────────────────────────────────
+    ═══════════════════════════════════════════════ */
+    #scroll-stage {
+      position: relative;
+      height: 500vh;          /* total scrollable distance for the animation */
+    }
+
+    /* ── Sticky scene – sticks inside the stage ── */
+    #sticky-scene {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
+      background: var(--ink);
+    }
+
+    /* ── Canvas ── */
+    #hero-canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      display: block;
+    }
+
+    /* Vignette on top of canvas */
+    #sticky-scene::after {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 50%, transparent 28%, rgba(10,10,6,.52) 100%),
+        linear-gradient(to bottom, rgba(10,10,6,.38) 0%, transparent 30%, transparent 62%, rgba(10,10,6,.60) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* ── Text overlay container ── */
+    /*
+      All panels live here, absolutely positioned.
+      JS drives their opacity; CSS handles the
+      translate so panels slide in from below and
+      slide up when they exit.
+    */
+    #text-overlay {
+      position: absolute; inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* ── Individual panels ──
+       Each panel is position:absolute, covering
+       the full overlay so we can place content
+       anywhere inside.  JS sets opacity + translateY
+       directly via style.  CSS sets will-change and
+       transition so the browser composites smoothly.
+    */
+    .panel {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      padding: 0 6vw 9vh;
+      opacity: 0;
+      will-change: opacity, transform;
+      /* NO CSS transition here – JS drives values
+         every frame so transition would cause lag */
+    }
+
+    /* Vertical alignment variants */
+    .panel.v-end   { justify-content: flex-end; align-items: flex-start; }
+    .panel.v-mid   { justify-content: center;   align-items: flex-start; padding-left: 8vw; }
+    .panel.v-end-r { justify-content: flex-end; align-items: flex-end;   text-align: right; padding-right: 7vw; }
+
+    .panel h1 {
+      font-family: var(--f-display);
+      font-size: clamp(3.5rem, 10vw, 10.5rem);
+      line-height: .89;
+      letter-spacing: .025em;
+      color: var(--cream);
+      text-shadow: 0 4px 48px rgba(0,0,0,.7);
+    }
+
+    /* accent line */
+    .panel .accent {
+      display: block;
+      width: 52px; height: 3px;
+      background: var(--sage);
+      margin-bottom: .9rem;
+      box-shadow: 0 0 12px var(--sage);
+    }
+    .panel.v-end-r .accent { margin-left: auto; }
+
+    .panel p {
+      margin-top: .9rem;
+      font-size: clamp(.9rem, 1.7vw, 1.2rem);
+      font-weight: 300;
+      color: var(--dim);
+      letter-spacing: .04em;
+      max-width: 400px;
+      text-shadow: 0 2px 14px rgba(0,0,0,.55);
+      line-height: 1.65;
+    }
+    .panel.v-end-r p { margin-left: auto; }
+
+    .panel .tag {
+      display: inline-block;
+      background: var(--rust);
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 500;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: 4px 13px;
+      border-radius: 2px;
+      margin-bottom: .55rem;
+    }
+
+    /* panel-2 italic serif subtitle */
+    .panel .kicker {
+      font-family: var(--f-serif);
+      font-style: italic;
+      font-size: clamp(1rem, 2vw, 1.35rem);
+      color: var(--sage);
+      margin-bottom: .4rem;
+      letter-spacing: .01em;
+    }
+
+    /* ═══════════════════════════════════════════════
+       ──────────────────────────────────────────────
+       DETAILS SECTION  (static, below the stage)
+       ──────────────────────────────────────────────
+    ═══════════════════════════════════════════════ */
+    #details {
+      position: relative;
+      background: var(--white);
+      color: var(--ink);
+      z-index: 10;          /* sit clearly above canvas area */
+    }
+
+    /* ── Hero banner of the details section ── */
+    .ds-banner {
+      background: var(--ink);
+      padding: 6rem 6vw 5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 1.5rem;
+    }
+    .ds-banner-title {
+      font-family: var(--f-display);
+      font-size: clamp(3rem, 9vw, 9rem);
+      line-height: .88;
+      color: var(--cream);
+      flex: 1 1 300px;
+    }
+    .ds-banner-title span { color: var(--sage); }
+    .ds-banner-sub {
+      flex: 1 1 260px;
+      font-size: clamp(.85rem, 1.4vw, 1rem);
+      font-weight: 300;
+      color: var(--dim);
+      letter-spacing: .04em;
+      line-height: 1.7;
+      max-width: 380px;
+      padding-bottom: .5rem;
+    }
+
+    /* ── Content grid ── */
+    .ds-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 0;
+      border-top: 1px solid rgba(15,15,10,.1);
+    }
+
+    .ds-card {
+      padding: 4rem 5vw 4rem;
+      border-right: 1px solid rgba(15,15,10,.08);
+      border-bottom: 1px solid rgba(15,15,10,.08);
+    }
+    .ds-card:last-child { border-right: none; }
+
+    .ds-card-num {
+      font-family: var(--f-display);
+      font-size: 4.5rem;
+      line-height: 1;
+      color: rgba(15,15,10,.06);
+      letter-spacing: .02em;
+      user-select: none;
+      margin-bottom: .3rem;
+    }
+
+    .ds-card-label {
+      font-size: .68rem;
+      font-weight: 500;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: .9rem;
+    }
+
+    .ds-card-title {
+      font-family: var(--f-serif);
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      line-height: 1.15;
+      color: var(--ink);
+      margin-bottom: 1.4rem;
+    }
+
+    .ds-card ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+    .ds-card ul li {
+      font-size: .92rem;
+      font-weight: 300;
+      color: rgba(15,15,10,.75);
+      line-height: 1.6;
+      padding-left: 1.3rem;
+      position: relative;
+    }
+    .ds-card ul li::before {
+      content: '→';
+      position: absolute; left: 0;
+      color: var(--sage);
+      font-weight: 500;
+    }
+
+    /* ── Steps (How it works) ── */
+    .ds-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .ds-step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: .8rem;
+      align-items: flex-start;
+      padding: .9rem 0;
+      border-bottom: 1px solid rgba(15,15,10,.07);
+    }
+    .ds-step:last-child { border-bottom: none; }
+    .ds-step-num {
+      font-family: var(--f-display);
+      font-size: 1.8rem;
+      line-height: 1;
+      color: var(--sage);
+      padding-top: 3px;
+    }
+    .ds-step-body strong {
+      display: block;
+      font-size: .82rem;
+      font-weight: 500;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: var(--ink);
+      margin-bottom: .3rem;
+    }
+    .ds-step-body span {
+      font-size: .9rem;
+      font-weight: 300;
+      color: rgba(15,15,10,.68);
+      line-height: 1.6;
+    }
+
+    /* ── Team card ── */
+    .ds-team {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .ds-member {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      padding: 1rem 1.2rem;
+      background: rgba(76,175,125,.06);
+      border-left: 3px solid var(--sage);
+      border-radius: 2px;
+    }
+    .ds-member-avatar {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: var(--ink);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--f-display);
+      font-size: 1.4rem;
+      color: var(--sage);
+      flex-shrink: 0;
+    }
+    .ds-member-name {
+      font-family: var(--f-serif);
+      font-size: 1.1rem;
+      color: var(--ink);
+      margin-bottom: .15rem;
+    }
+    .ds-member-role {
+      font-size: .72rem;
+      font-weight: 500;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--sage);
+      margin-bottom: .35rem;
+    }
+    .ds-member-desc {
+      font-size: .84rem;
+      font-weight: 300;
+      color: rgba(15,15,10,.65);
+      line-height: 1.6;
+    }
+
+    /* ── Team Grid ── */
+    .ds-team-section {
+      background: var(--white);
+      padding: 5rem 6vw 5.5rem;
+      border-top: 1px solid rgba(15,15,10,.08);
+    }
+    .ds-team-header {
+      margin-bottom: 3.2rem;
+    }
+    .ds-team-header .ds-card-label {
+      margin-bottom: .6rem;
+    }
+    .ds-team-header .ds-card-title {
+      font-family: var(--f-serif);
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      line-height: 1.1;
+      color: var(--ink);
+    }
+    .ds-team-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2.5rem;
+      justify-content: flex-start;
+    }
+    .ds-team-card {
+      flex: 1 1 220px;
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: .1rem;
+    }
+    /* Gold-bordered circular photo */
+    .ds-team-photo-wrap {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      border: 5px solid #C9A84C;   /* rich gold */
+      box-shadow:
+        0 0 0 3px rgba(201,168,76,.18),
+        0 8px 32px rgba(201,168,76,.22);
+      overflow: hidden;
+      margin-bottom: 1.3rem;
+      flex-shrink: 0;
+      background: #e8e0d0;
+    }
+    .ds-team-photo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: 50%;
+      filter: grayscale(12%);
+    }
+    .ds-team-name {
+      font-family: var(--f-serif);
+      font-size: 1.1rem;
+      color: var(--ink);
+      margin-bottom: .3rem;
+      line-height: 1.2;
+    }
+    .ds-team-role {
+      display: inline-block;
+      font-size: .67rem;
+      font-weight: 500;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: #fff;
+      background: var(--ink);
+      padding: 4px 12px;
+      border-radius: 2px;
+      margin-bottom: .6rem;
+    }
+    .ds-team-role.gold { background: #C9A84C; color: var(--ink); }
+    .ds-team-desc {
+      font-size: .83rem;
+      font-weight: 300;
+      color: rgba(15,15,10,.62);
+      line-height: 1.6;
+      max-width: 220px;
+    }
+
+    /* ── Footer ── */
+    .ds-footer {
+      background: var(--ink);
+      padding: 5rem 6vw 3.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+    .ds-footer-logo {
+      font-family: var(--f-display);
+      font-size: clamp(2rem, 6vw, 5rem);
+      letter-spacing: .06em;
+      color: var(--cream);
+      opacity: .08;
+      user-select: none;
+    }
+    .ds-cta { display: flex; flex-wrap: wrap; gap: .8rem; }
+    .btn {
+      font-family: var(--f-display);
+      font-size: 1rem;
+      letter-spacing: .1em;
+      padding: .8rem 2.2rem;
+      border-radius: 2px;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      display: inline-block;
+    }
+    .btn-primary  { background: var(--sage);  color: var(--ink); }
+    .btn-outline  { background: transparent;  color: var(--cream); border: 1px solid rgba(244,239,228,.2); }
+    .ds-meta {
+      width: 100%;
+      font-size: .7rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(244,239,228,.22);
+      padding-top: 2.5rem;
+      border-top: 1px solid rgba(244,239,228,.06);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+     LOADER
+════════════════════════════════════ -->
+<div id="loader">
+  <div class="ld-logo">Cycle<span>Share</span></div>
+  <div class="ld-track"><div class="ld-fill" id="ld-fill"></div></div>
+  <div class="ld-pct"  id="ld-pct">Loading frames… 0%</div>
+</div>
+
+<!-- ════════════════════════════════════
+     SCROLL PROGRESS LINE
+════════════════════════════════════ -->
+<div id="progress-line"></div>
+
+<!-- ════════════════════════════════════
+     NAVBAR
+════════════════════════════════════ -->
+<nav>
+  <a class="nav-brand" href="#">Cycle<span>Share</span></a>
+  <a class="nav-sub" href="https://www.iiserpune.ac.in/" target="_blank" rel="noopener noreferrer">IISER Pune</a>
+</nav>
+
+<!-- ════════════════════════════════════
+     SCROLL STAGE
+     500vh tall — the sticky scene inside
+     advances the canvas frames and fades
+     text panels ONE AT A TIME.
+════════════════════════════════════ -->
+<div id="scroll-stage">
+  <div id="sticky-scene">
+
+    <canvas id="hero-canvas"></canvas>
+
+    <!-- All text panels live here.
+         JS sets opacity + transform; they never
+         overlap because each has its own scroll window. -->
+    <div id="text-overlay">
+
+      <!-- PANEL 1  ░░ 0%–33% of stage ░░ -->
+      <div class="panel v-end" id="panel-1">
+        <span class="accent"></span>
+        <h1>CycleShare<br>Club<br><em style="font-style:normal;color:var(--sage)">IISER Pune</em></h1>
+        <p>Transforming campus mobility — one repaired bicycle at a time.</p>
+      </div>
+
+      <!-- PANEL 2  ░░ 33%–66% of stage ░░ -->
+      <div class="panel v-mid" id="panel-2">
+        <span class="kicker">Our philosophy</span>
+        <span class="accent"></span>
+        <h1>Repair.<br>Reuse.<br>Ride.</h1>
+        <p>We rescue abandoned bicycles, restore them to life, and put them back on campus roads.</p>
+      </div>
+
+      <!-- PANEL 3  ░░ 66%–100% of stage ░░ -->
+      <div class="panel v-end-r" id="panel-3">
+        <span class="tag">Semester Rental</span>
+        <span class="accent"></span>
+        <h1>Rent for<br>₹200–300</h1>
+        <p>Affordable, sustainable rides for every student. Zero waste, zero hassle.</p>
+      </div>
+
+    </div><!-- /text-overlay -->
+  </div><!-- /sticky-scene -->
+</div><!-- /scroll-stage -->
+
+
+<!-- ════════════════════════════════════
+     DETAILS — static section below the
+     animation; solid white background.
+════════════════════════════════════ -->
+<div id="details">
+
+  <!-- Banner -->
+  <div class="ds-banner">
+    <div class="ds-banner-title">Cycle<span>Share</span></div>
+    <p class="ds-banner-sub">
+      A student-led initiative at IISER Pune to build a circular,
+      affordable cycling ecosystem — powered entirely by repair and reuse.
+    </p>
+  </div>
+
+  <!-- Three-column content grid -->
+  <div class="ds-grid">
+
+
+    <!-- ── CARD A: Vision & Objectives ── -->
+
+    <div class="ds-card">
+      <div class="ds-card-num">01</div>
+      <div class="ds-card-label">Vision &amp; Objectives</div>
+      <div class="ds-card-title">Why<br>CycleShare?</div>
+      <div class="ds-steps">
+        <div class="ds-step">
+          <div class="ds-step-num">01</div>
+          <div class="ds-step-body">
+            
+            <span>Reduce waste by repairing abandoned and unclaimed cycles lying unused on campus.</span>
+          </div>
+        </div>
+        <div class="ds-step">
+          <div class="ds-step-num">02</div>
+          <div class="ds-step-body">
+            
+            <span>Provide affordable semester-based mobility at just ₹200–300 per semester..</span>
+          </div>
+        </div>
+        <div class="ds-step">
+          <div class="ds-step-num">03</div>
+          <div class="ds-step-body">
+            
+            <span>Promote a greener, more sustainable campus culture at IISER Pune.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CARD B: How it Works ── -->
+    <div class="ds-card">
+      <div class="ds-card-num">02</div>
+      <div class="ds-card-label">How It Works</div>
+      <div class="ds-card-title">Three Simple<br>Steps</div>
+      <div class="ds-steps">
+        <div class="ds-step">
+          <div class="ds-step-num">01</div>
+          <div class="ds-step-body">
+            <strong>Collection</strong>
+            <span>We identify and collect unused or abandoned cycles from across campus.</span>
+          </div>
+        </div>
+        <div class="ds-step">
+          <div class="ds-step-num">02</div>
+          <div class="ds-step-body">
+            <strong>Renting</strong>
+            <span>Students register and rent a cycle for a full semester at a subsidised fee.</span>
+          </div>
+        </div>
+        <div class="ds-step">
+          <div class="ds-step-num">03</div>
+          <div class="ds-step-body">
+            <strong>Maintenance</strong>
+            <span>Students handle minor day-to-day care; the club manages all major repairs.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CARD C: Team ── -->
+    <div class="ds-card">
+      <div class="ds-card-num">03</div>
+      <div class="ds-card-label">Community</div>
+      <div class="ds-card-title">Events &<br>Outreach</div>
+      <div class="ds-steps">
+        <div class="ds-step">
+          <div class="ds-step-num">01</div>
+          <div class="ds-step-body">
+            <strong>Garage days</strong>
+            <span>We host periodic call bicycle mechanic on campus, where any student can bring their personal cycle for a tune-up</span>
+          </div>
+        </div>
+        <div class="ds-step">
+          <div class="ds-step-num">02</div>
+          <div class="ds-step-body">
+            <strong>Cyclothon</strong>
+            <span>A flagship fitness event to promote cycling culture on campus.</span>
+          </div>
+        </div>
+        <div class="ds-step">
+          <div class="ds-step-num">03</div>
+          <div class="ds-step-body">
+            <strong>Green Awareness</strong>
+            <span>We organize events and campaigns to promote sustainability and a zero-carbon campus lifestyle.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /ds-grid -->
+
+  <!-- ── TEAM SECTION (full-width, below the 3-col grid) ── -->
+ <div class="ds-team-section">
+    
+    <div class="ds-team-header" style="text-align: center;">
+      <div class="ds-card-label">Club Coordinators</div>
+      <div class="ds-card-title">Meet the Team</div>
+    </div>
+
+    <div class="ds-team-grid" style="justify-content: center;">
+
+      <div class="ds-team-card">
+        <div class="ds-team-photo-wrap">
+          <img src="images/bedartha.jpg" alt="Faculty Advisor photo" />
+        </div>
+        <div class="ds-team-name">Bedartha Goswami</div>
+        <div class="ds-team-role gold">Faculty Advisor</div>
+        <div class="ds-team-desc">
+          Providing institutional support for the CycleShare initiative.
+        </div>
+      </div>
+
+      <div class="ds-team-card">
+        <div class="ds-team-photo-wrap">
+          <img src="images/jatin.jpeg" alt="Jatin Raghuwanshi photo" />
+        </div>
+        <div class="ds-team-name">Jatin Raghuwanshi</div>
+        <div class="ds-team-role">General Coordinator</div>
+        <div class="ds-team-desc">
+          Leading the initiative to establish the CycleShare framework and operations at IISER Pune.
+        </div>
+      </div>
+
+      <div class="ds-team-card">
+        <div class="ds-team-photo-wrap">
+          <img src="images/aryans.jpeg" alt="Logistics Coordinator photo" />
+        </div>
+        <div class="ds-team-name">Aryans Raut</div>
+        <div class="ds-team-role">Logistics Coordinator</div>
+        <div class="ds-team-desc">
+          Managing cycle collection, repairs, and the day-to-day logistics of the rental system.
+        </div>
+      </div>
+
+    </div><!-- /ds-team-grid -->
+  </div><!-- /ds-team-section -->
+
+  <!-- Footer -->
+  <div class="ds-footer">
+    <div class="ds-footer-logo">CYCLE<br>SHARE</div>
+    <div class="ds-cta">
+      <a class="btn btn-primary" href="/cdn-cgi/l/email-protection#f4978d979891879c958691b49d9d87918684819a91da9597da9d9a">Get in Touch</a>
+      <a class="btn btn-outline"  href="#">Join the Club</a>
+    </div>
+    <div class="ds-meta">
+      © 2025 CycleShare Club · IISER Pune · Building a greener campus, one ride at a time
+    </div>
+  </div>
+
+</div><!-- /details -->
+
+
+<!-- ════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════ -->
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+(function () {
+  /* ─────────────────────────────────────
+     CONFIG
+  ───────────────────────────────────── */
+  const FRAME_COUNT    = 155;
+  const IMG_DIR        = 'images/scrolleffect/';
+  const PRIMARY_DELAY  = '0.042s';
+  const FALLBACK_DELAY = '0.041s';
+
+  /* ─────────────────────────────────────
+     FILENAME BUILDER
+     e.g. frame_042_delay-0.042s.webp
+  ───────────────────────────────────── */
+  function framePath(i, delay) {
+    return IMG_DIR + 'frame_' + String(i).padStart(3, '0') + '_delay-' + delay + '.webp';
+  }
+
+  /* ─────────────────────────────────────
+     IMAGE PRELOADER
+  ───────────────────────────────────── */
+  const images   = new Array(FRAME_COUNT).fill(null);
+  let   loaded   = 0;
+  let   ready    = false;
+
+  const ldFill   = document.getElementById('ld-fill');
+  const ldPct    = document.getElementById('ld-pct');
+  const ldEl     = document.getElementById('loader');
+
+  function onLoad(i, img) {
+    images[i] = img;
+    loaded++;
+    const pct = Math.round(loaded / FRAME_COUNT * 100);
+    ldFill.style.width      = pct + '%';
+    ldPct.textContent       = 'Loading frames… ' + pct + '%';
+    if (loaded === FRAME_COUNT) {
+      setTimeout(function () {
+        ldEl.classList.add('out');
+        drawFrame(0);
+        ready = true;
+        onScroll();
+      }, 350);
+    }
+  }
+
+  for (let i = 0; i < FRAME_COUNT; i++) {
+    (function (idx) {
+      const img = new Image();
+      img.onload  = function () { onLoad(idx, img); };
+      img.onerror = function () {
+        const fb = new Image();
+        fb.onload  = function () { onLoad(idx, fb); };
+        fb.onerror = function () {
+          console.warn('[CycleShare] Missing frame ' + idx);
+          onLoad(idx, null);
+        };
+        fb.src = framePath(idx, FALLBACK_DELAY);
+      };
+      img.src = framePath(idx, PRIMARY_DELAY);
+    })(i);
+  }
+
+  /* ─────────────────────────────────────
+     CANVAS
+  ───────────────────────────────────── */
+  const canvas = document.getElementById('hero-canvas');
+  const ctx    = canvas.getContext('2d');
+  let   curFrame = 0;
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = window.innerWidth  * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width  = window.innerWidth  + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (ready) drawFrame(curFrame);
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  function drawFrame(idx) {
+    var img = images[idx];
+    if (!img) return;
+    var W = window.innerWidth, H = window.innerHeight;
+    var s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    var dw = img.naturalWidth * s, dh = img.naturalHeight * s;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+
+  /* ─────────────────────────────────────
+     PANEL FADE LOGIC
+     ─────────────────────────────────────
+     Each panel has a timeline window within
+     the 0→1 scroll progress of the stage:
+
+       panel  │  fade-in ends  │  hold-end  │  fade-out ends
+       ───────┼────────────────┼────────────┼───────────────
+         1    │    0.00–0.09   │  0.09–0.26 │   0.26–0.35
+         2    │    0.35–0.44   │  0.44–0.61 │   0.61–0.70
+         3    │    0.70–0.79   │  0.79–1.00 │   (stays)
+
+     The "TRANSLATE" effect:
+       - Fade-in  : translateY slides from +28px → 0
+       - Visible  : translateY = 0
+       - Fade-out : translateY slides from 0 → -20px
+  ───────────────────────────────────── */
+  var panelDefs = [
+    // [fadeInStart, fadeInEnd, holdEnd, fadeOutEnd]
+    { el: document.getElementById('panel-1'), t: [0.00, 0.00, 0.26, 0.35] },
+    { el: document.getElementById('panel-2'), t: [0.35, 0.44, 0.61, 0.70] },
+    { el: document.getElementById('panel-3'), t: [0.70, 0.79, 1.00, 1.00] },
+  ];
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function invlerp(a, b, v) { return Math.min(Math.max((v - a) / (b - a), 0), 1); }
+
+  function computePanel(progress, def) {
+    var fi0 = def.t[0], fi1 = def.t[1],   // fade-in   window
+        h1  = def.t[2],                    // hold ends (= fade-out start)
+        fo1 = def.t[3];                    // fade-out  ends
+
+    var opacity, ty;
+
+    if (progress < fi0) {
+      // before this panel
+      opacity = 0;
+      ty      = 28;
+    } else if (progress < fi1) {
+      // fading in
+      var t   = invlerp(fi0, fi1, progress);
+      opacity = t;
+      ty      = lerp(28, 0, t);
+    } else if (progress < h1) {
+      // fully visible
+      opacity = 1;
+      ty      = 0;
+    } else if (fo1 > h1 && progress < fo1) {
+      // fading out
+      var t   = invlerp(h1, fo1, progress);
+      opacity = 1 - t;
+      ty      = lerp(0, -20, t);
+    } else {
+      // after this panel
+      opacity = 0;
+      ty      = -20;
+    }
+
+    return { opacity: opacity, ty: ty };
+  }
+
+  function updatePanels(progress) {
+    for (var i = 0; i < panelDefs.length; i++) {
+      var r   = computePanel(progress, panelDefs[i]);
+      var el  = panelDefs[i].el;
+      el.style.opacity   = r.opacity;
+      el.style.transform = 'translateY(' + r.ty + 'px)';
+    }
+  }
+
+  /* ─────────────────────────────────────
+     SCROLL HANDLER
+  ───────────────────────────────────── */
+  var stage       = document.getElementById('scroll-stage');
+  var progressLine = document.getElementById('progress-line');
+
+  function getStageProgress() {
+    // How far have we scrolled through the stage?
+    // stageTop is normally 0 (stage is at top of page).
+    var scrollable = stage.offsetHeight - window.innerHeight;
+    return scrollable > 0
+      ? Math.min(Math.max(window.scrollY / scrollable, 0), 1)
+      : 0;
+  }
+
+  function onScroll() {
+    if (!ready) return;
+
+    var rawProgress = window.scrollY /
+      (document.documentElement.scrollHeight - window.innerHeight);
+    progressLine.style.width = (rawProgress * 100).toFixed(2) + '%';
+
+    var stageProgress = getStageProgress();
+
+    // ── Canvas frame
+    var frameIdx = Math.min(
+      Math.round(stageProgress * (FRAME_COUNT - 1)),
+      FRAME_COUNT - 1
+    );
+    if (frameIdx !== curFrame) {
+      curFrame = frameIdx;
+      drawFrame(curFrame);
+    }
+
+    // ── Update Text Panels (Fade In/Out)
+    // We pass the stage progress (0 to 1) to animate the text.
+    updatePanels(stageProgress);
+  }
+
+  /* ─────────────────────────────────────
+     INIT
+  ───────────────────────────────────── */
+  window.addEventListener('scroll', onScroll);
+  // Trigger once on load to set initial state
+  onScroll();
+
+})();
+</script>
+</body>
+</html>
